@@ -1,0 +1,97 @@
+/**
+ * Bouncer file takes in an image and draws a bouncing ball over it.
+ * The ball needs to have some sort of shading/gradient on it and the
+ * bounce must be reasonable.
+ *
+ * Date:   2019.03.27
+ * Author: Kade Challis, Beverly Yee
+ **/
+
+#include <iostream>
+
+// allows the inclusion of C code files in C++
+extern "C"
+{
+#include "libavcodec/avcodec.h"
+#include <libavformat/avformat.h>
+#include <libswscale/swscale.h>
+#include <libavutil/dict.h>
+}
+
+int main (int argc, char ** argv)
+{
+  const AVCodec *codec;
+  AVFormatContext *pFormatCtx = NULL;
+  const char* filename = argv[1];
+  int vidStream, i;
+  AVCodecContext *pCodecCtxOrig;
+  AVCodecContext *codecCtx = avcodec_alloc_context3(NULL);
+  AVCodecParameters *param = avcodec_parameters_alloc();
+  AVStream *stream = NULL;
+
+
+  // Checks to make sure the code we're using exists
+  codec = avcodec_find_encoder_by_name("cool");
+  if (!codec) {
+    std::cout << "cool codec not found\n";
+    exit(1);
+  }
+  else
+    std::cout << "cool codec found\n";
+
+
+/* Start of code referenced and taken from Dranger FFMPEG tutorial
+ * found at http://dranger.com/ffmpeg/tutorial01.html. Code referenced from
+ * other sites will be cited on line directly above. */
+
+  /** Open video file - function only looks at header of file
+    * Filename is the file. pFormatCtx is the pointer to the format context
+    * of the file. The first NULL argument is the parameter for file format
+    * - FFMPEG autmatically denotes that if it's NULL, forces for any other
+    * argument. The second NULL argument is for an options parameter. **/
+  if(avformat_open_input(&pFormatCtx, filename, NULL, NULL) != 0)
+    return -1; // Couldn't open file
+
+  // Retrieve stream information
+  if(avformat_find_stream_info(pFormatCtx, NULL) < 0)
+    return -1; // Couldn't find stream information
+
+  // Dump information about file onto standard error - debugging function
+  // May not need?
+  av_dump_format(pFormatCtx, 0, filename, 0);
+
+  /** Walk through the stream of pFormatCtx pointer array to find the video
+    * stream - codec is deprecated, replace with codecpar
+    * http://libav-users.943685.n4.nabble.com/Libav-user-AVStream-gt-codec-deprecation-td4662437.html **/
+  vidStream = -1;
+  for (i = 0; i < pFormatCtx->nb_streams; i++){
+    stream = pFormatCtx->streams[i];
+    if (stream->codecpar->codec_type == AVMEDIA_TYPE_VIDEO) {
+      vidStream = i;
+      break;
+    }
+  }
+
+  if (vidStream == -1)
+    return -1; // didn't find a video stream
+
+  avcodec_parameters_from_context(param, stream->codecpar);
+
+  /** codec is deprecated and codecpar is of type AVCodecParameter, not
+    * AVCodecContex, which pCodecCtx is. Convert.
+    * https://ffmpeg.org/pipermail/libav-user/2016-October/009801.html **/
+  avcodec_parameters_to_context(codecCtx, pFormatCtx->streams[vidStream]->codecpar);
+
+  // find the decoder for the vid stream
+  codec = avcodec_find_decoder(codecCtx->codec_id);
+  if(codec == NULL) {
+    fprintf(stderr, "Unsupported codec\n");
+    return -1;
+  }
+
+  // copy context
+  codecCtx = avcodec_alloc_context3(codec);
+
+
+/* End of code referenced and taken from Dranger FFMPEG tutorial */
+}
