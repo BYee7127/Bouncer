@@ -1,0 +1,12 @@
+/**
+ * This file draws a ball with given coordinates from the bouncer.cpp
+ * file.
+ *
+ * Date:   2019.04.05
+ * Author: Kade Challis, Beverly Yee
+ **/
+
+#include "ball.h"
+
+
+

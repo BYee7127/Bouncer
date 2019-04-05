@@ -17,6 +17,8 @@ extern "C"
 #include <libswscale/swscale.h>
 #include <libavutil/dict.h>
 #include <libavutil/imgutils.h>
+
+#include <SDL.h>
 }
 
 void SaveFrame(AVFrame *pFrame, int width, int height, int iFrame);
@@ -46,7 +48,7 @@ int main (int argc, char ** argv)
     // codec is found, so check the file name
     av_log(codecCtx, AV_LOG_INFO, "cool codec found. Processing filename.\n");
 
-    // if the extension is not a JPG, then stop the process.
+    // if the extension/file is not a JPG, then stop the process.
   }
 
 
@@ -64,6 +66,8 @@ int main (int argc, char ** argv)
   if(avformat_find_stream_info(pFormatCtx, NULL) < 0)
     return -1; // Couldn't find stream information
 
+  // Dump information about file
+  av_dump_format(pFormatCtx, 0, argv[1], 0);
 
   /** Walk through the stream of pFormatCtx pointer array to find the video
     * stream - codec is deprecated, replace with codecpar
@@ -151,6 +155,8 @@ int main (int argc, char ** argv)
 			   SWS_BILINEAR,
 			   NULL, NULL, NULL);
   i = 0;
+  SDL_Rect rect;
+
   while (av_read_frame(pFormatCtx, packet) >= 0) {
     // check if the packet is from the video stream
     if (packet->stream_index == vidStream) {
@@ -165,6 +171,11 @@ int main (int argc, char ** argv)
 	  sws_scale(sws_ctx, (uint8_t const * const *)frame->data,
 		    frame->linesize, 0, tempCtx->height, RGBframe->data,
 		    RGBframe->linesize);
+
+	  rect.x = 0;
+	  rect.y = 0 ;
+	  rect.w = pCodecCtx->width/2;
+	  rect.h = pCodecCtx->height/w;
 
 	  // save to disk
 	  if (++i <= 5)
