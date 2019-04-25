@@ -17,9 +17,13 @@ test:
 test2:
 	./bouncer ../Downloads/marbles2.bmp
 
-# 3rd test for a different, larger file
+# 3rd test for a different file
 test3:
 	./bouncer coffee2.jpg
+
+# 4th test for a larger file
+test4:
+	./bouncer coffee.jpg
 
 # removes all files
 clean:

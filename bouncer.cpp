@@ -186,7 +186,7 @@ int main (int argc, char ** argv)
 
       // check for video frame
       if (frameFinished) {
-        for(int j = 0; j < 150; j++){
+        for(int j = 0; j < 300; j++){
           // convert image
           sws_scale(sws_ctx, (uint8_t const * const *)frame->data,
               frame->linesize, 0, tempCtx->height, RGBframe->data,
@@ -234,7 +234,7 @@ void save_frame(AVFrame *pFrame, int width, int height, int iFrame) {
   int  y;
   
   // Open file
-  sprintf(szFilename, "frame%i.cool", iFrame);
+  sprintf(szFilename, "frame%03d.cool", iFrame);
   pFile = fopen(szFilename, "wb");
   if(pFile == NULL)
     return;
