@@ -17,6 +17,10 @@ test:
 test2:
 	./bouncer ../Downloads/marbles2.bmp
 
+# 3rd test for a different, larger file
+test3:
+	./bouncer coffee2.jpg
+
 # removes all files
 clean:
 # the -f makes the clean succeed even if the files don't exist

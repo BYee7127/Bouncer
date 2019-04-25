@@ -258,19 +258,17 @@ void overlay_ball (AVFrame * pFrame, int width, int height, int j)
 
   int moveX = 8*j;
   int moveY = 20*j;
-  int startX, startY = 0;
+      
+    // the box surrounding the circle has reached the bottom of the window
+    if(moveY + length >= height){
+      //moveY = height - length;
+      moveY = height - length + (height - moveY);
+    }
 
   for(int y = 0; y < height; y++){
-    for(int x = 0; x < width; x++){
+   for(int x = 0; x < width; x++){
       // linesize - the *3 allows the RGB values to be set
       int offset = 3*(x + y*width);
-      
-      // the box surrounding the circle has reached the bottom of the window
-      if(moveY + length >= height){
-	//moveY = height - length;
-	moveY = height - length + (height - moveY);
-      }
-
 
       // make sure the circle moves, so add the move variables
       int circ_point = pow((x-moveX)-radius,2) + pow((y-moveY)-radius, 2);
@@ -282,7 +280,7 @@ void overlay_ball (AVFrame * pFrame, int width, int height, int j)
        	  pFrame->data[0][offset+0] = 0;
 	  pFrame->data[0][offset+1] = 0;
 	  pFrame->data[0][offset+2] = 255;
-	  }
+	}
       }
     }
   }
