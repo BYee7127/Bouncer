@@ -184,7 +184,7 @@ int main (int argc, char ** argv)
 
       // check for video frame
       if (frameFinished) {
-	for(int j = 0; j < 10; j++){
+	for(int j = 0; j < 20; j++){
 	  // convert image
 	  sws_scale(sws_ctx, (uint8_t const * const *)frame->data,
 		    frame->linesize, 0, tempCtx->height, RGBframe->data,
@@ -253,44 +253,39 @@ void SaveFrame(AVFrame *pFrame, int width, int height, int iFrame) {
  **/
 void overlay_ball (AVFrame * pFrame, int width, int height, int j)
 {
+  int length = 30;
   int radius = 15;
 
-  // find center of frame and draw ball relative to center
-  int x_center = 0 + radius;
-  int y_center = 0 + radius;
+  int moveX = 8*j;
+  int moveY = 20*j;
+  int startX, startY = 0;
 
-  // how much of the movement of the circle is
-  int move_x = 30*j;
-  int move_y = 30*j;
-
-  // iterate over pixels in frame and draw a circle
   for(int y = 0; y < height; y++){
     for(int x = 0; x < width; x++){
-      // center of the circle
-      int x_circ = pow((x-move_x) - x_center, 2);
-      int y_circ = pow((y-move_y) - y_center, 2);
-      //x_circ = x_circ + move_x;
-      //y_circ = y_circ + move_y;
-
-      //cout << "x2 = " << x2 << ", y2 = " << y2 << "\n";
-
-      // if the pixel is within a certain range, draw
+      // linesize - the *3 allows the RGB values to be set
       int offset = 3*(x + y*width);
-      if((x_circ + y_circ) <= (pow(radius,2))){
-	  pFrame->data[0][offset+0] = 0;
-	  pFrame->data[0][offset+1] = 255;
-	  pFrame->data[0][offset+2] = 0;
+      
+      // the box surrounding the circle has reached the bottom of the window
+      if(moveY + length >= height){
+	//moveY = height - length;
+	moveY = height - length + (height - moveY);
       }
 
-      if(x_circ + radius > pow(width, 2)){
-	//cout << "x_circ = " << x_circ << ", width = " << width << "\n";
-	x_circ = width-radius;
-	move_x = move_x * (-1);
-      }
-      if(y_circ + radius < pow(height, 2)){
-	y_circ = height - radius;
-	move_y = move_y * (-1);
+
+      // make sure the circle moves, so add the move variables
+      int circ_point = pow((x-moveX)-radius,2) + pow((y-moveY)-radius, 2);
+
+      if(x > moveX && x <= moveX+length &&
+	 y > moveY && y <= moveY+length){
+	// draw a circle within the square
+	if(circ_point <= pow(radius, 2)){
+       	  pFrame->data[0][offset+0] = 0;
+	  pFrame->data[0][offset+1] = 0;
+	  pFrame->data[0][offset+2] = 255;
+	  }
       }
     }
   }
+
+  //cout << "===================================== End of file [" << j << "]\n\n";
 }
