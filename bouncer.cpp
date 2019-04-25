@@ -22,8 +22,10 @@ extern "C"
 
 using namespace std;
 
-void SaveFrame(AVFrame *pFrame, int width, int height, int iFrame);
+void save_frame(AVFrame *pFrame, int width, int height, int iFrame);
 void overlay_ball(AVFrame *pFrame, int width, int height, int j);
+int check_height(int j, int length, int height);
+int check_width(int j, int length, int width);
 
 int main (int argc, char ** argv)
 {
@@ -184,17 +186,17 @@ int main (int argc, char ** argv)
 
       // check for video frame
       if (frameFinished) {
-	for(int j = 0; j < 50; j++){
-	  // convert image
-	  sws_scale(sws_ctx, (uint8_t const * const *)frame->data,
-		    frame->linesize, 0, tempCtx->height, RGBframe->data,
-		    RGBframe->linesize);
-	
-	  overlay_ball(RGBframe, tempCtx->width, tempCtx->height, j);
+        for(int j = 0; j < 150; j++){
+          // convert image
+          sws_scale(sws_ctx, (uint8_t const * const *)frame->data,
+              frame->linesize, 0, tempCtx->height, RGBframe->data,
+              RGBframe->linesize);
+        
+          overlay_ball(RGBframe, tempCtx->width, tempCtx->height, j);
 
-	  // save to disk
-	  SaveFrame(RGBframe, tempCtx->width, tempCtx->height, j);
-	}
+          // save to disk
+          save_frame(RGBframe, tempCtx->width, tempCtx->height, j);
+        }
       }
     }
 
@@ -221,12 +223,12 @@ int main (int argc, char ** argv)
 }
 
 /**
- * SaveFrame function writes the RGB information into whatever format
+ * save_frame function writes the RGB information into whatever format
  * we're using. In the tutorial, they use PPM. For our purposes, we are
  * using the cool format.
  * Taken from http://dranger.com/ffmpeg/tutorial01.html
  **/
-void SaveFrame(AVFrame *pFrame, int width, int height, int iFrame) {
+void save_frame(AVFrame *pFrame, int width, int height, int iFrame) {
   FILE *pFile;
   char szFilename[32];
   int  y;
@@ -251,22 +253,13 @@ void SaveFrame(AVFrame *pFrame, int width, int height, int iFrame) {
 /**
  * Drawing the ball over the frame of the current image
  **/
-void overlay_ball (AVFrame * pFrame, int width, int height, int j)
-{
+void overlay_ball (AVFrame * pFrame, int width, int height, int j){
   int length = 30;
   int radius = 15;
 
-  int moveX = 8*j;
-  int moveY = 17*j;
-      
-    // the box surrounding the circle has reached the bottom of the window
-    if(moveY + length >= height){
-      int diff = height - moveY;
-      if(diff > 0)
-	moveY = height - length;
-      else
-	moveY = height - length + (height - moveY);
-    }
+  // how much to move by, denoted by a number passed in
+  int moveX = check_width(j, length, width);
+  int moveY = check_height(j, length, height);
 
   for(int y = 0; y < height; y++){
    for(int x = 0; x < width; x++){
@@ -278,17 +271,84 @@ void overlay_ball (AVFrame * pFrame, int width, int height, int j)
 
       // bounding box to make it easier to detect if the ball has hit the
       // edge of the frame
-      if(x > moveX && x <= moveX+length &&
-	 y > moveY && y <= moveY+length){
-	// draw a circle within the square
-	if(circ_point <= pow(radius, 2)){
-       	  pFrame->data[0][offset+0] = 0;
-	  pFrame->data[0][offset+1] = 0;
-	  pFrame->data[0][offset+2] = 255;
-	}
+      if(x >= moveX && x <= moveX+length &&
+	       y >= moveY && y <= moveY+length){
+        // draw a circle within the square
+        if(circ_point <= pow(radius, 2)){
+          pFrame->data[0][offset+0] = 0;
+          pFrame->data[0][offset+1] = 0;
+          pFrame->data[0][offset+2] = 255;
+        }
       }
     }
   }
 
   //cout << "===================================== End of file [" << j << "]\n\n";
 }
+
+/**
+ * Helper function for the overlay_ball function to make it easier to read
+ * It checks whether the ball is within the bounds of the frame - height-wise.
+ * The j parameter is the parameter passed in from the main function
+ * The length parameter is the side length of the bounding box
+ * The height parameter is the height of the frame
+ **/
+int check_height(int j, int length, int height){
+  // how many pixels to move by
+  int move = 17;
+
+  // determines how many times a ball can cross the image before reaching an edge
+  int frameCount = j % (height/move);
+
+  // sets how much from the top/bottom the ball is moving
+  int y = frameCount * move;
+
+  // if the bounding box reaches the bottom, keep it there for a frame or two
+  if(y+length >= height){
+    y = height - length;
+  }
+  
+  // this check is to see if the ball is bouncing back up
+  if((j/(height/move)) % 2 == 1){
+    // if it is, make the count negative
+    frameCount = -frameCount;
+
+    // and subtract it from the height
+    // Don't forget the length - the ball will disappear mysteriously
+    y = height - y - length;
+  }
+
+  return y;
+}
+
+/**
+ * Similar to the function above, this function is a helper function to overlay_ball
+ * to help it look better. This one checks to see whether the ball is within the
+ * width-bounds of the frame.
+ * The j parameter is the parameter passed by the main function
+ * The length parameter is the side length of the bounding box
+ * The width parameter is the width of the frame
+ **/
+ int check_width(int j, int length, int width){
+   // how many pixels to move
+   int move = 8;
+
+   // determines how many times a ball can cross the image before reaching an edge
+   int frameCount = j % (width/move);
+
+   int x = frameCount * move;
+
+  // if the bounding box reaches the edge, keep it there
+  if(x + length >= width){
+    x = width - length;
+  }
+
+  if((j/(width/move)) % 2 == 1){
+    frameCount = -frameCount;
+    x = width - x - length;
+  }
+
+   // ensure that the ball never goes out of bounds
+   
+   return x;
+ }
