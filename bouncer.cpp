@@ -184,7 +184,7 @@ int main (int argc, char ** argv)
 
       // check for video frame
       if (frameFinished) {
-	for(int j = 0; j < 20; j++){
+	for(int j = 0; j < 50; j++){
 	  // convert image
 	  sws_scale(sws_ctx, (uint8_t const * const *)frame->data,
 		    frame->linesize, 0, tempCtx->height, RGBframe->data,
@@ -257,12 +257,15 @@ void overlay_ball (AVFrame * pFrame, int width, int height, int j)
   int radius = 15;
 
   int moveX = 8*j;
-  int moveY = 20*j;
+  int moveY = 17*j;
       
     // the box surrounding the circle has reached the bottom of the window
     if(moveY + length >= height){
-      //moveY = height - length;
-      moveY = height - length + (height - moveY);
+      int diff = height - moveY;
+      if(diff > 0)
+	moveY = height - length;
+      else
+	moveY = height - length + (height - moveY);
     }
 
   for(int y = 0; y < height; y++){
@@ -273,6 +276,8 @@ void overlay_ball (AVFrame * pFrame, int width, int height, int j)
       // make sure the circle moves, so add the move variables
       int circ_point = pow((x-moveX)-radius,2) + pow((y-moveY)-radius, 2);
 
+      // bounding box to make it easier to detect if the ball has hit the
+      // edge of the frame
       if(x > moveX && x <= moveX+length &&
 	 y > moveY && y <= moveY+length){
 	// draw a circle within the square
