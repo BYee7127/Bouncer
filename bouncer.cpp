@@ -247,8 +247,8 @@ void save_frame(AVFrame *pFrame, int width, int height, int iFrame) {
   // Write header
   // TODO: I'm pretty sure the header file is what causing the conversion
   // to fail.
-  fprintf(pFile, "P6\n%d %d\n255\n", width, height);
-  //fprintf(pFile, width, height);
+  //fprintf(pFile, "P6\n%d %d\n255\n", width, height);
+  fprintf(pFile, "cool");
   
   // Write pixel data
   for(y = 0; y < height; y++)
