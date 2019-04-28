@@ -64,6 +64,9 @@ int main (int argc, char ** argv)
       av_log(codecCtx, AV_LOG_INFO, "Invalid file format: Not a JPG file.\n");
       exit(1);
     }
+    else{
+      av_log(codecCtx, AV_LOG_INFO, "Valid file format. Continuing.\n");
+    }
   }
 
 
@@ -97,6 +100,7 @@ int main (int argc, char ** argv)
   }
 
   if (vidStream == -1){
+    // returns a -1 if the AVMediaType is unknown. 0 is for Video
     av_log(tempCtx, AV_LOG_ERROR, "Could not find a video stream\n");
     return AVERROR_INVALIDDATA;
   }
@@ -108,6 +112,7 @@ int main (int argc, char ** argv)
   // FFMPEG output function. 
   // http://dranger.com/ffmpeg/tutorial01.html
   codec = avcodec_find_decoder(codecCtx->codec_id);
+  cout << "Codec = " << codec << endl;
   if(codec == NULL) {
     av_log(codecCtx, AV_LOG_ERROR, "Unsupported codec\n");
     return AVERROR_INVALIDDATA;
@@ -240,7 +245,10 @@ void save_frame(AVFrame *pFrame, int width, int height, int iFrame) {
     return;
   
   // Write header
+  // TODO: I'm pretty sure the header file is what causing the conversion
+  // to fail.
   fprintf(pFile, "P6\n%d %d\n255\n", width, height);
+  //fprintf(pFile, width, height);
   
   // Write pixel data
   for(y = 0; y < height; y++)
@@ -269,6 +277,11 @@ void overlay_ball (AVFrame * pFrame, int width, int height, int j){
       // make sure the circle moves, so add the move variables
       int circ_point = pow((x-moveX)-radius,2) + pow((y-moveY)-radius, 2);
 
+      // start the shading!
+      int light_shade_1 = pow((x-moveX)-radius-2,2) + pow((y-moveY)-radius+2, 2);
+      int light_shade_2 = pow((x-moveX)-radius-3,2) + pow((y-moveY)-radius+3, 2);
+      int light_shade_3 = pow((x-moveX)-radius-4,2) + pow((y-moveY)-radius+4, 2);
+
       // bounding box to make it easier to detect if the ball has hit the
       // edge of the frame
       if(x >= moveX && x <= moveX+length &&
@@ -277,6 +290,25 @@ void overlay_ball (AVFrame * pFrame, int width, int height, int j){
         if(circ_point <= pow(radius, 2)){
           pFrame->data[0][offset+0] = 0;
           pFrame->data[0][offset+1] = 0;
+          pFrame->data[0][offset+2] = 255;
+        }
+        
+        // the shaded balls
+        // no else if's or else the big circle overlays the others
+        if(light_shade_1 <= pow(radius-3, 2)){
+          // adding shades of red and green makes blue lighter
+          pFrame->data[0][offset+0] = 50;
+          pFrame->data[0][offset+1] = 50;
+          pFrame->data[0][offset+2] = 255;
+        }
+        if(light_shade_2 <= pow(radius-8, 2)){
+          pFrame->data[0][offset+0] = 80;
+          pFrame->data[0][offset+1] = 80;
+          pFrame->data[0][offset+2] = 255;
+        }
+        if(light_shade_3 <= pow(radius-12, 2)){
+          pFrame->data[0][offset+0] = 150;
+          pFrame->data[0][offset+1] = 150;
           pFrame->data[0][offset+2] = 255;
         }
       }
