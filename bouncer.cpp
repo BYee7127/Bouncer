@@ -84,7 +84,8 @@ int main (int argc, char ** argv)
   if(avformat_find_stream_info(pFormatCtx, NULL) < 0)
     return -1; // Couldn't find stream information
 
-  // Dump information about file
+  // Dump information about file - not necessary, but can be nice
+  // to see
   av_dump_format(pFormatCtx, 0, filename, 0);
 
   /** Walk through the stream of pFormatCtx pointer array to find the video
@@ -112,7 +113,6 @@ int main (int argc, char ** argv)
   // FFMPEG output function. 
   // http://dranger.com/ffmpeg/tutorial01.html
   codec = avcodec_find_decoder(codecCtx->codec_id);
-  cout << "Codec = " << codec << endl;
   if(codec == NULL) {
     av_log(codecCtx, AV_LOG_ERROR, "Unsupported codec\n");
     return AVERROR_INVALIDDATA;
@@ -179,6 +179,7 @@ int main (int argc, char ** argv)
 			   NULL, NULL, NULL);
 
   i = 0;
+  FILE *pFile;
   while (av_read_frame(pFormatCtx, packet) >= 0) {
     // check if the packet is from the video stream
     if (packet->stream_index == vidStream) {
@@ -200,13 +201,15 @@ int main (int argc, char ** argv)
           overlay_ball(RGBframe, tempCtx->width, tempCtx->height, j);
 
           // save to disk
-          save_frame(RGBframe, tempCtx->width, tempCtx->height, j);
+          //save_frame(RGBframe, tempCtx->width, tempCtx->height, j);
+          fwrite(packet->data, 1, packet->size, pFile);
         }
       }
     }
 
       // free the packet - av_free_packet is deprecated
       av_packet_unref(packet);
+      fclose(pFile);
   }
 
   // Free the RGB image
