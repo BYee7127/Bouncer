@@ -29,3 +29,11 @@ test4:
 clean:
 # the -f makes the clean succeed even if the files don't exist
 	rm -f *.cool bouncer
+
+# makes the movie out of the .cool files
+movie:
+	ffmpeg -r 30 -i frame%03d.cool movie.mp4
+
+# plays the movie
+play:
+	ffplay movie.mp4

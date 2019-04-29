@@ -186,7 +186,6 @@ int main (int argc, char ** argv)
       avcodec_send_packet(tempCtx, packet);
        // receive a frame for encoding
       frameFinished = avcodec_receive_frame(tempCtx, frame);
-      // avcodec_decode_video2(tempCtx, frame, &frameFinished, packet);
 
       // check for video frame
       if (!frameFinished) {
@@ -197,15 +196,11 @@ int main (int argc, char ** argv)
               frame->linesize, 0, tempCtx->height, RGBframe->data,
               RGBframe->linesize);
 
+          RGBframe->width = tempCtx->width;
+          RGBframe->height = tempCtx->height;
+
           // draw the ball over the image
           overlay_ball(RGBframe, tempCtx->width, tempCtx->height, j);
-
-
-          // encode the frame to a .cool format then save
-          //avcodec_send_frame(tempCtx, RGBframe);
-          //int packetFinished = avcodec_receive_packet(tempCtx, packet);
-
-          cout << "TempCtx = " << tempCtx << endl;
 
           // save to disk
           save_frame(tempCtx, RGBframe, packet, j);
@@ -217,11 +212,9 @@ int main (int argc, char ** argv)
       av_packet_unref(packet);
   }
 
-  // Free the RGB image
+  // Free the image
   av_free(buffer);
   av_free(RGBframe);
-
-  // Free the YUV frame
   av_free(frame);
  
   // Close the codecs
@@ -240,63 +233,56 @@ int main (int argc, char ** argv)
  * we're using. In the tutorial, they use PPM. For our purposes, we are
  * using the cool format.
  * Taken from http://dranger.com/ffmpeg/tutorial01.html
+ * This function also relies heavily on the encode_video.c example in 
+ * FFMPEG/docs/examples.
  **/
 void save_frame(AVCodecContext *ctx, AVFrame *frame, AVPacket *pkt, int iFrame) {
   FILE *pFile;
   char szFilename[32];
-  int  y;
+  int ret;  
   AVCodec *codec = avcodec_find_encoder_by_name("cool");
   AVCodecContext *enc_ctx = avcodec_alloc_context3(codec);
 
-  cout << "Codec = " << codec << endl;
-  
+  enc_ctx->width = ctx->width;
+  enc_ctx->height = ctx->height;
+  /* frames per second */
+  enc_ctx->time_base = (AVRational){1, 30};
+  enc_ctx->framerate = (AVRational){30, 1};
+  enc_ctx->pix_fmt = AV_PIX_FMT_RGB24;
+
+
   // Open file
   sprintf(szFilename, "frame%03d.cool", iFrame);
   pFile = fopen(szFilename, "wb");
   if(pFile == NULL)
     return;
-  
-  // Write header
-  // TODO: I'm pretty sure the header file is what causing the conversion
-  // to fail.
-  //fprintf(pFile, "cool", width, height);
-  //fprintf("cool");
-  // NOTE: Doing this does give a cool image header, but introduces a different error
-  
-  // Write pixel data
-  //for(y = 0; y < height; y++)
-    //fwrite(pFrame->data[0]+y*pFrame->linesize[0], 1, width*3, pFile);
-    //nonsensical
-
-    int ret;
+    
+    av_frame_get_buffer(frame, 1);
+    avcodec_open2(enc_ctx, codec, NULL);
 
     /* send the frame to the encoder */
-    if (frame)
-        printf("Send frame %3"PRId64"\n", frame->pts);
-
     ret = avcodec_send_frame(enc_ctx, frame);
-    cout << "Return value = " << ret << endl;
     if (ret < 0) {
-        fprintf(stderr, "Error sending a frame for encoding\n");
-        exit(1);
+      fprintf(stderr, "Error sending a frame for encoding\n");
+      exit(1);
     }
 
     while (ret >= 0) {
-        ret = avcodec_receive_packet(enc_ctx, pkt);
-        if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF)
-            return;
-        else if (ret < 0) {
-            fprintf(stderr, "Error during encoding\n");
-            exit(1);
-        }
+      ret = avcodec_receive_packet(enc_ctx, pkt);
+      if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF)
+          return;
+      else if (ret < 0) {
+          fprintf(stderr, "Error during encoding\n");
+          exit(1);
+      }
 
-        printf("Write packet %3"PRId64" (size=%5d)\n", pkt->pts, pkt->size);
-        fwrite(pkt->data, 1, pkt->size, pFile);
-        av_packet_unref(pkt);
+      fwrite(pkt->data, 1, pkt->size, pFile);
+      av_packet_unref(pkt);
     }
 
-  // Close file
+  // Close
   fclose(pFile);
+  avcodec_close(enc_ctx);
 }
 
 /**
