@@ -266,6 +266,7 @@ void save_frame(AVCodecContext *ctx, AVFrame *frame, AVPacket *pkt, int iFrame) 
   // Write pixel data
   //for(y = 0; y < height; y++)
     //fwrite(pFrame->data[0]+y*pFrame->linesize[0], 1, width*3, pFile);
+    //nonsensical
 
     int ret;
 
