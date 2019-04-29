@@ -22,7 +22,7 @@ extern "C"
 
 using namespace std;
 
-void save_frame(AVFrame *pFrame, int width, int height, int iFrame);
+void save_frame(AVCodecContext *enc_ctx, AVFrame *frame, AVPacket *pkt, int iFrame);
 void overlay_ball(AVFrame *pFrame, int width, int height, int j);
 int check_height(int j, int length, int height);
 int check_width(int j, int length, int width);
@@ -84,8 +84,7 @@ int main (int argc, char ** argv)
   if(avformat_find_stream_info(pFormatCtx, NULL) < 0)
     return -1; // Couldn't find stream information
 
-  // Dump information about file - not necessary, but can be nice
-  // to see
+  // Dump information about file
   av_dump_format(pFormatCtx, 0, filename, 0);
 
   /** Walk through the stream of pFormatCtx pointer array to find the video
@@ -179,37 +178,43 @@ int main (int argc, char ** argv)
 			   NULL, NULL, NULL);
 
   i = 0;
-  FILE *pFile;
   while (av_read_frame(pFormatCtx, packet) >= 0) {
     // check if the packet is from the video stream
     if (packet->stream_index == vidStream) {
       // avcodec_decode_video2 deprecated
-      // send for encoding
-      // avcodec_send_packet(tempCtx, packet);
-       // receive a packet for encoding (?)
-      // frameFinished = avcodec_receive_frame(tempCtx, RGBframe);
-      avcodec_decode_video2(tempCtx, frame, &frameFinished, packet);
+      // send for decoding
+      avcodec_send_packet(tempCtx, packet);
+       // receive a frame for encoding
+      frameFinished = avcodec_receive_frame(tempCtx, frame);
+      // avcodec_decode_video2(tempCtx, frame, &frameFinished, packet);
 
       // check for video frame
-      if (frameFinished) {
+      if (!frameFinished) {
+        // if we entered here, that means we received the frame
         for(int j = 0; j < 300; j++){
-          // convert image
+          // convert image - RGBframe is the final decoded frame
           sws_scale(sws_ctx, (uint8_t const * const *)frame->data,
               frame->linesize, 0, tempCtx->height, RGBframe->data,
               RGBframe->linesize);
-        
+
+          // draw the ball over the image
           overlay_ball(RGBframe, tempCtx->width, tempCtx->height, j);
 
+
+          // encode the frame to a .cool format then save
+          //avcodec_send_frame(tempCtx, RGBframe);
+          //int packetFinished = avcodec_receive_packet(tempCtx, packet);
+
+          cout << "TempCtx = " << tempCtx << endl;
+
           // save to disk
-          //save_frame(RGBframe, tempCtx->width, tempCtx->height, j);
-          fwrite(packet->data, 1, packet->size, pFile);
+          save_frame(tempCtx, RGBframe, packet, j);
         }
       }
     }
 
       // free the packet - av_free_packet is deprecated
       av_packet_unref(packet);
-      fclose(pFile);
   }
 
   // Free the RGB image
@@ -236,10 +241,14 @@ int main (int argc, char ** argv)
  * using the cool format.
  * Taken from http://dranger.com/ffmpeg/tutorial01.html
  **/
-void save_frame(AVFrame *pFrame, int width, int height, int iFrame) {
+void save_frame(AVCodecContext *ctx, AVFrame *frame, AVPacket *pkt, int iFrame) {
   FILE *pFile;
   char szFilename[32];
   int  y;
+  AVCodec *codec = avcodec_find_encoder_by_name("cool");
+  AVCodecContext *enc_ctx = avcodec_alloc_context3(codec);
+
+  cout << "Codec = " << codec << endl;
   
   // Open file
   sprintf(szFilename, "frame%03d.cool", iFrame);
@@ -250,13 +259,41 @@ void save_frame(AVFrame *pFrame, int width, int height, int iFrame) {
   // Write header
   // TODO: I'm pretty sure the header file is what causing the conversion
   // to fail.
-  //fprintf(pFile, "P6\n%d %d\n255\n", width, height);
-  fprintf(pFile, "cool");
+  //fprintf(pFile, "cool", width, height);
+  //fprintf("cool");
+  // NOTE: Doing this does give a cool image header, but introduces a different error
   
   // Write pixel data
-  for(y = 0; y < height; y++)
-    fwrite(pFrame->data[0]+y*pFrame->linesize[0], 1, width*3, pFile);
-  
+  //for(y = 0; y < height; y++)
+    //fwrite(pFrame->data[0]+y*pFrame->linesize[0], 1, width*3, pFile);
+
+    int ret;
+
+    /* send the frame to the encoder */
+    if (frame)
+        printf("Send frame %3"PRId64"\n", frame->pts);
+
+    ret = avcodec_send_frame(enc_ctx, frame);
+    cout << "Return value = " << ret << endl;
+    if (ret < 0) {
+        fprintf(stderr, "Error sending a frame for encoding\n");
+        exit(1);
+    }
+
+    while (ret >= 0) {
+        ret = avcodec_receive_packet(enc_ctx, pkt);
+        if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF)
+            return;
+        else if (ret < 0) {
+            fprintf(stderr, "Error during encoding\n");
+            exit(1);
+        }
+
+        printf("Write packet %3"PRId64" (size=%5d)\n", pkt->pts, pkt->size);
+        fwrite(pkt->data, 1, pkt->size, pFile);
+        av_packet_unref(pkt);
+    }
+
   // Close file
   fclose(pFile);
 }
@@ -266,7 +303,7 @@ void save_frame(AVFrame *pFrame, int width, int height, int iFrame) {
  **/
 void overlay_ball (AVFrame * pFrame, int width, int height, int j){
   int length = 30;
-  int radius = 15;
+  int radius = 15;  // messing of the radius uses a LOT of math, so keeping at 15
 
   // how much to move by, denoted by a number passed in
   int moveX = check_width(j, length, width);
@@ -317,8 +354,6 @@ void overlay_ball (AVFrame * pFrame, int width, int height, int j){
       }
     }
   }
-
-  //cout << "===================================== End of file [" << j << "]\n\n";
 }
 
 /**
@@ -378,12 +413,11 @@ int check_height(int j, int length, int height){
     x = width - length;
   }
 
+   // ensure that the ball never goes out of bounds
   if((j/(width/move)) % 2 == 1){
     frameCount = -frameCount;
     x = width - x - length;
   }
 
-   // ensure that the ball never goes out of bounds
-   
    return x;
  }
